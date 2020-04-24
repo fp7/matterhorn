@@ -20,6 +20,7 @@ import qualified Graphics.Vty as Vty
 import           Lens.Micro.Platform ( to )
 
 import           Constants
+import           Emoji ( getEmojiText )
 import           Events.Keybindings
 import           Themes
 import           Types
@@ -98,14 +99,18 @@ handleEvent VMTabReactions =
 reactionsText :: ChatState -> Message -> Widget Name
 reactionsText st m = viewport ViewMessageReactionsArea Vertical body
     where
+        em = st^.csResources.crEmoji
         body = case null reacList of
             True -> txt "This message has no reactions."
             False -> vBox $ mkEntry <$> reacList
         reacList = M.toList (m^.mReactions)
         mkEntry (reactionName, userIdSet) =
             let count = str $ "(" <> show (S.size userIdSet) <> ")"
-                name = withDefAttr emojiAttr $ txt $ ":" <> reactionName <> ":"
+                name = withDefAttr emojiAttr $ txt reacContent
                 usernameList = usernameText userIdSet
+                reacContent = maybe reacName (\cs -> cs <> " " <> reacName) $
+                              getEmojiText em reactionName
+                reacName = ":" <> reactionName <> ":"
             in (name <+> (padLeft (Pad 1) count)) <=>
                (padLeft (Pad 2) usernameList)
 
@@ -127,6 +132,7 @@ viewMessageBox st msg =
                         txtWrap $ "Alert: this message has been deleted and " <>
                                   "will no longer be accessible once this window " <>
                                   "is closed."
+        em = st^.csResources.crEmoji
         mkBody vpWidth =
             let hs = getHighlightSet st
                 parent = case msg^.mInReplyToMsg of
@@ -146,7 +152,7 @@ viewMessageBox st msg =
                                  , mdMessageWidthLimit = Just vpWidth
                                  , mdMyUsername        = myUsername st
                                  }
-            in renderMessage md
+            in renderMessage em md
 
     in Widget Greedy Greedy $ do
         ctx <- getContext

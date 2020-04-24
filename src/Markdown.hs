@@ -49,6 +49,7 @@ import qualified Skylighting.Core as Sky
 import           Network.Mattermost.Lenses ( postEditAtL, postCreateAtL )
 import           Network.Mattermost.Types ( ServerTime(..) )
 
+import           Emoji ( EmojiCollection, getEmojiText )
 import           Themes
 import           Types ( Name, HighlightSet(..), userSigil, normalChannelSigil )
 import           Types.Messages
@@ -147,8 +148,8 @@ data MessageData =
                 }
 
 -- | renderMessage performs markdown rendering of the specified message.
-renderMessage :: MessageData -> Widget Name
-renderMessage md@MessageData { mdMessage = msg, .. } =
+renderMessage :: EmojiCollection -> MessageData -> Widget Name
+renderMessage em md@MessageData { mdMessage = msg, .. } =
     let msgUsr = case mdUserName of
           Just u -> if omittedUsernameType (msg^.mType) then Nothing else Just u
           Nothing -> Nothing
@@ -205,8 +206,9 @@ renderMessage md@MessageData { mdMessage = msg, .. } =
           then Nothing
           else let renderR e us =
                        let n = Set.size us
-                       in if | n == 1    -> " [" <> e <> "]"
-                             | n > 1     -> " [" <> e <> " " <> T.pack (show n) <> "]"
+                           content = fromMaybe e $ getEmojiText em e
+                       in if | n == 1    -> " [" <> content <> "]"
+                             | n > 1     -> " [" <> content <> " " <> T.pack (show n) <> "]"
                              | otherwise -> ""
                    reactionMsg = Map.foldMapWithKey renderR (msg^.mReactions)
                in Just $ B.withDefAttr emojiAttr $ B.txt ("   " <> reactionMsg)
@@ -223,7 +225,7 @@ renderMessage md@MessageData { mdMessage = msg, .. } =
               case mdParentMessage of
                   Nothing -> withParent (B.str "[loading...]")
                   Just pm ->
-                      let parentMsg = renderMessage md
+                      let parentMsg = renderMessage em md
                             { mdShowOlderEdits    = False
                             , mdMessage           = pm
                             , mdUserName          = mdParentUserName

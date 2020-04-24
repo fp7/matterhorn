@@ -61,7 +61,8 @@ renderChatMessage st hs ind threadState renderTimeFunc msg =
         parent = case msg^.mInReplyToMsg of
           NotAReply -> Nothing
           InReplyTo pId -> getMessageForPostId st pId
-        m = renderMessage MessageData
+        em = st^.csResources.crEmoji
+        m = renderMessage em $ MessageData
               { mdMessage           = msg
               , mdUserName          = msg^.mUser.to (nameForUserRef st)
               , mdParentMessage     = parent

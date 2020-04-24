@@ -239,11 +239,12 @@ renderUserCommandBox st hs =
                          " to finish."
                  ]
 
+        em = st^.csResources.crEmoji
         replyDisplay = case st^.csEditState.cedEditMode of
             Replying msg _ ->
                 let msgWithoutParent = msg & mInReplyToMsg .~ NotAReply
                 in hBox [ replyArrow
-                        , addEllipsis $ renderMessage MessageData
+                        , addEllipsis $ renderMessage em $ MessageData
                           { mdMessage           = msgWithoutParent
                           , mdUserName          = msgWithoutParent^.mUser.to (nameForUserRef st)
                           , mdParentMessage     = Nothing
@@ -546,13 +547,14 @@ inputPreview st hs | not $ st^.csShowMessagePreview = emptyWidget
         Editing _ ty -> Just ty
         _ -> Nothing
     previewMsg = previewFromInput overrideTy uId curStr
+    em = st^.csResources.crEmoji
     thePreview = let noPreview = str "(No preview)"
                      msgPreview = case previewMsg of
                        Nothing -> noPreview
                        Just pm -> if T.null curStr
                                   then noPreview
                                   else prview pm $ getParentMessage st pm
-                     prview m p = renderMessage MessageData
+                     prview m p = renderMessage em $ MessageData
                                   { mdMessage           = m
                                   , mdUserName          = m^.mUser.to (nameForUserRef st)
                                   , mdParentMessage     = p

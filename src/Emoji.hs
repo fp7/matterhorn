@@ -1,10 +1,12 @@
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TupleSections #-}
 module Emoji
   ( EmojiCollection
   , loadEmoji
   , emptyEmojiCollection
   , getMatchingEmoji
   , matchesEmoji
+  , getEmojiText
   )
 where
 
@@ -18,12 +20,14 @@ import qualified Data.ByteString.Lazy as BSL
 import qualified Data.Foldable as F
 import qualified Data.Text as T
 import qualified Data.Sequence as Seq
+import qualified Data.Map as M
+import           Numeric ( readHex )
 
 import           Network.Mattermost.Types ( Session )
 import qualified Network.Mattermost.Endpoints as MM
 
 
-newtype EmojiData = EmojiData (Seq.Seq T.Text)
+newtype EmojiData = EmojiData (Seq.Seq (T.Text, T.Text))
 
 -- | The collection of all emoji names we loaded from a JSON disk file.
 -- You might rightly ask: why don't we use a Trie here, for efficient
@@ -33,14 +37,26 @@ newtype EmojiData = EmojiData (Seq.Seq T.Text)
 -- about this. If at some point this becomes an issue, other data
 -- structures with good infix lookup performance should be identified
 -- (full-text search, perhaps?).
-newtype EmojiCollection = EmojiCollection [T.Text]
+newtype EmojiCollection = EmojiCollection (M.Map T.Text T.Text)
+
+parseEmojiFilenameValue :: T.Text -> Maybe T.Text
+parseEmojiFilenameValue t =
+    let elements = T.splitOn "-" t
+        parseElement e =
+            case readHex (T.unpack e) of
+                [(val, "")] -> Just $ toEnum val
+                _ -> Nothing
+    in T.pack <$> mapM parseElement elements
 
 instance A.FromJSON EmojiData where
     parseJSON = A.withArray "EmojiData" $ \v -> do
         aliasVecs <- forM v $ \val ->
             flip (A.withObject "EmojiData Entry") val $ \obj -> do
                 as <- obj A..: "aliases"
-                forM as $ A.withText "Alias list element" return
+                fname <- obj A..: "filename"
+                case parseEmojiFilenameValue fname of
+                    Nothing -> return mempty
+                    Just cs -> forM as $ A.withText "Alias list element" (return . (, cs) . T.toLower)
 
         return $ EmojiData $ mconcat $ F.toList aliasVecs
 
@@ -55,14 +71,17 @@ loadEmoji path = runExceptT $ do
         Left (e::E.SomeException) -> throwError $ show e
         Right bs -> do
             EmojiData es <- ExceptT $ return $ A.eitherDecode bs
-            return $ EmojiCollection $ T.toLower <$> F.toList es
+            return $ EmojiCollection $ M.fromList (F.toList es)
 
 -- | Look up matching emoji in the collection using the provided search
 -- string. This does a case-insensitive infix match. The search string
 -- may be provided with or without leading and trailing colons.
 lookupEmoji :: EmojiCollection -> T.Text -> [T.Text]
-lookupEmoji (EmojiCollection es) search =
-    filter (matchesEmoji search) es
+lookupEmoji (EmojiCollection m) search =
+    fst <$> (M.toList $ M.filter (matchesEmoji search) m)
+
+getEmojiText :: EmojiCollection -> T.Text -> Maybe T.Text
+getEmojiText (EmojiCollection m) key = M.lookup (T.toLower key) m
 
 -- | Match a search string against an emoji.
 matchesEmoji :: T.Text
