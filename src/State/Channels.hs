@@ -142,7 +142,7 @@ updateViewedChan updatePrev cId = use csConnectionStatus >>= \case
         doAsyncChannelMM Preempt cId
           (\s c -> MM.mmViewChannel UserMe c pId s)
           (\c () -> Just $ setLastViewedFor pId c)
-    Disconnected ->
+    Disconnected _ ->
         -- Cannot update server; make no local updates to avoid getting
         -- out of sync with the server. Assumes that this is a temporary
         -- break in connectivity and that after the connection is

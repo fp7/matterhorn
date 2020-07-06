@@ -418,7 +418,7 @@ connectionLayer :: ChatState -> Widget Name
 connectionLayer st =
     case st^.csConnectionStatus of
         Connected -> emptyWidget
-        Disconnected ->
+        Disconnected _ ->
             Widget Fixed Fixed $ do
                 ctx <- getContext
                 let aw = ctx^.availWidthL

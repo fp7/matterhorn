@@ -1067,7 +1067,7 @@ data Mode =
     deriving (Eq)
 
 -- | We're either connected or we're not.
-data ConnectionStatus = Connected | Disconnected deriving (Eq)
+data ConnectionStatus = Connected | Disconnected SomeException
 
 -- | An entry in a tabbed window corresponding to a tab and its content.
 -- Parameterized over an abstract handle type ('a') for the tabs so we
@@ -1639,8 +1639,9 @@ data MHEvent =
     -- ^ Tell our main loop to refresh the websocket connection
     | WebsocketParseError String
     -- ^ We failed to parse an incoming websocket event
-    | WebsocketDisconnect
-    -- ^ The websocket connection went down.
+    | WebsocketDisconnect SomeException
+    -- ^ The websocket connection went down. If possible, an exception
+    -- related to the disconnection is included.
     | WebsocketConnect
     -- ^ The websocket connection came up.
     | BGIdle

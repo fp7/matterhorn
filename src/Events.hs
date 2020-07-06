@@ -69,8 +69,8 @@ onBrickEvent _ =
 onAppEvent :: MHEvent -> MH ()
 onAppEvent RefreshWebsocketEvent =
     connectWebsockets
-onAppEvent WebsocketDisconnect = do
-    csConnectionStatus .= Disconnected
+onAppEvent (WebsocketDisconnect e) = do
+    csConnectionStatus .= Disconnected e
     disconnectChannels
 onAppEvent WebsocketConnect = do
     csConnectionStatus .= Connected

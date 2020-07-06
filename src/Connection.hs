@@ -5,7 +5,8 @@ import           Prelude.MH
 
 import           Control.Concurrent ( forkIO, threadDelay, killThread )
 import qualified Control.Concurrent.STM as STM
-import           Control.Exception ( SomeException, catch, AsyncException(..), throwIO )
+import           Control.Exception ( SomeException, catch, AsyncException(..), throwIO
+                                   , toException )
 import qualified Data.HashMap.Strict as HM
 import           Data.Int (Int64)
 import           Data.Semigroup ( Max(..) )
@@ -90,15 +91,15 @@ processWebsocketActions st ws s userTypingLastNotifTimeMap = do
 handleTimeout :: (LogCategory -> Text -> IO ()) -> Int -> ChatState -> WS.MMWebSocketTimeoutException -> IO ()
 handleTimeout logger seconds st e = do
     logger LogWebsocket $ T.pack $ "Websocket timeout exception: " <> show e
-    reconnectAfter seconds st
+    reconnectAfter (toException e) seconds st
 
 handleError :: (LogCategory -> Text -> IO ()) -> Int -> ChatState -> SomeException -> IO ()
 handleError logger seconds st e = do
     logger LogWebsocket $ T.pack $ "Websocket error: " <> show e
-    reconnectAfter seconds st
+    reconnectAfter e seconds st
 
-reconnectAfter :: Int -> ChatState -> IO ()
-reconnectAfter seconds st = do
-  writeBChan (st^.csResources.crEventQueue) WebsocketDisconnect
+reconnectAfter :: SomeException -> Int -> ChatState -> IO ()
+reconnectAfter e seconds st = do
+  writeBChan (st^.csResources.crEventQueue) $ WebsocketDisconnect e
   threadDelay (seconds * 1000 * 1000)
   writeBChan (st^.csResources.crEventQueue) RefreshWebsocketEvent
