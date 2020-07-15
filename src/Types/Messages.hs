@@ -117,13 +117,15 @@ import           Data.Hashable ( Hashable )
 import qualified Data.Map.Strict as Map
 import           Data.Sequence as Seq
 import qualified Data.Set as S
+import qualified Data.Text as T
 import           Data.Tuple
 import           Data.UUID ( UUID )
 import           GHC.Generics ( Generic )
 import           Lens.Micro.Platform ( makeLenses )
 
 import           Network.Mattermost.Types ( ChannelId, PostId, Post
-                                          , ServerTime, UserId, FileId )
+                                          , ServerTime, UserId, FileId
+                                          , PostId(..), Id(..) )
 
 import           Types.DirectionalSeq
 import           Types.Posts
@@ -294,6 +296,8 @@ data LinkChoice =
 
 data LinkTarget =
     LinkURL Text
+    | LinkPostPermalink Text PostId
+    -- ^ Channel's URL name and post ID of target post
     deriving (Eq, Show, Ord)
 
 makeLenses ''LinkChoice
@@ -723,11 +727,17 @@ removeMatchesFromSubset matching firstId lastId msgs =
 withFirstMessage :: SeqDirection dir => (Message -> r) -> DirectionalSeq dir Message -> Maybe r
 withFirstMessage = withDirSeqHead
 
-msgURLs :: Message -> Seq LinkChoice
-msgURLs msg =
+msgURLs :: Text -> Message -> Seq LinkChoice
+msgURLs serverBaseUrl msg =
   let uRef = msg^.mUser
-      msgUrls = (\ (url, text) -> LinkChoice (msg^.mDate) uRef text (LinkURL url) Nothing) <$>
-                  (mconcat $ blockGetURLs <$> (toList $ msg^.mText))
+      msgUrls = mkLinkChoice <$> (mconcat $ blockGetURLs <$> (toList $ msg^.mText))
+      mkLinkChoice (url, text) =
+          let target = if serverBaseUrl `T.isPrefixOf` url
+                       then let rest = T.drop (T.length serverBaseUrl) url
+                                (cName, pid) = T.breakOn "/pl/" rest
+                            in LinkPostPermalink cName (PI $ Id $ T.drop 4 pid)
+                       else LinkURL url
+          in LinkChoice (msg^.mDate) uRef text target Nothing
       attachmentURLs = (\ a ->
                           LinkChoice
                             (msg^.mDate)

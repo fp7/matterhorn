@@ -21,7 +21,9 @@ import           Util
 
 startUrlSelect :: MH ()
 startUrlSelect = do
-    urls <- use (csCurrentChannel.to findUrls.to V.fromList)
+    st <- use id
+    let baseUrl = getServerBaseUrl st
+    urls <- use (csCurrentChannel.to (findUrls baseUrl).to V.fromList)
     setMode UrlSelect
     csUrlList .= (listMoveTo (length urls - 1) $ list UrlList urls 2)
 
@@ -39,10 +41,10 @@ openSelectedURL = whenMode UrlSelect $ do
                 mhError $ ConfigOptionMissing "urlOpenCommand"
                 setMode Main
 
-findUrls :: ClientChannel -> [LinkChoice]
-findUrls chan =
+findUrls :: Text -> ClientChannel -> [LinkChoice]
+findUrls serverBaseUrl chan =
     let msgs = chan^.ccContents.cdMessages
-    in removeDuplicates $ concat $ toList $ toList <$> msgURLs <$> msgs
+    in removeDuplicates $ concat $ toList $ toList <$> msgURLs serverBaseUrl <$> msgs
 
 removeDuplicates :: [LinkChoice] -> [LinkChoice]
 removeDuplicates = nubOn (\ l -> (l^.linkURL, l^.linkUser))

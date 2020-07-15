@@ -148,7 +148,10 @@ openSelectedMessageURLs = whenMode MessageSelect $ do
         Nothing -> error "BUG: openSelectedMessageURLs: no selected message available"
         Just m -> return m
 
-    let urls = msgURLs curMsg
+    st <- use id
+    let baseUrl = getServerBaseUrl st
+        urls = msgURLs baseUrl curMsg
+
     when (not (null urls)) $ do
         openedAll <- and <$> mapM (openURL . OpenLinkChoice) urls
         case openedAll of

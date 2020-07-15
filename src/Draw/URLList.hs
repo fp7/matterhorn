@@ -11,7 +11,7 @@ import           Brick.Widgets.List ( renderList )
 import qualified Data.Foldable as F
 import           Lens.Micro.Platform ( to )
 
-import           Network.Mattermost.Types ( ServerTime(..) )
+import           Network.Mattermost.Types ( ServerTime(..), idString )
 
 import           Draw.Messages
 import           Draw.Util
@@ -55,3 +55,5 @@ renderUrlList st =
 
 renderLinkTarget :: LinkTarget -> Widget a
 renderLinkTarget (LinkURL url) = renderText url
+renderLinkTarget (LinkPostPermalink cName pId) =
+    txt $ "permalink:" <> cName <> "/" <> (idString pId)

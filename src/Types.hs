@@ -73,6 +73,8 @@ module Types
   , channelSelectInput
   , emptyChannelSelectState
 
+  , getServerBaseUrl
+
   , ChatState
   , newState
   , csResources
@@ -885,6 +887,12 @@ data ChatResources =
                   , _crLogManager          :: LogManager
                   , _crEmoji               :: EmojiCollection
                   }
+
+getServerBaseUrl :: ChatState -> Text
+getServerBaseUrl st =
+    let cr = _csResources st
+        conn = _crConn cr
+    in connectionDataURL conn
 
 -- | A "special" mention that does not map to a specific user, but is an
 -- alias that the server uses to notify users.

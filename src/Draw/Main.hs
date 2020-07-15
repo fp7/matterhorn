@@ -437,7 +437,8 @@ messageSelectBottomBar st =
         mkOption (f, k, desc) = if f postMsg
                                 then Just $ k <> ":" <> desc
                                 else Nothing
-        numURLs = Seq.length $ msgURLs postMsg
+        baseUrl = getServerBaseUrl st
+        numURLs = Seq.length $ msgURLs baseUrl postMsg
         s = if numURLs == 1 then "" else "s"
         hasURLs = numURLs > 0
         openUrlsMsg = "open " <> (T.pack $ show numURLs) <> " URL" <> s

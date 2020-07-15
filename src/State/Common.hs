@@ -152,7 +152,15 @@ postErrorMessageIO err st = do
           (addMessage $ clientMessageToMessage msg & mMessageId .~ Just (MessageUUID uuid))
   return $ st & csChannels %~ modifyChannelById cId addEMsg
 
+isPostPermalink :: LinkChoice -> Maybe (Text, PostId)
+isPostPermalink c =
+    case c^.linkURL of
+        LinkPostPermalink cName pId -> Just (cName, pId)
+        _ -> Nothing
+
 openURL :: OpenInBrowser -> MH Bool
+openURL (OpenLinkChoice c) | Just (cName, pId) <- isPostPermalink c = do
+    return False
 openURL thing = do
     cfg <- use (csResources.crConfiguration)
     case configURLOpenCommand cfg of
@@ -167,6 +175,10 @@ openURL thing = do
                         case link^.linkFileId of
                             Nothing -> case link^.linkURL of
                                 LinkURL url -> return [T.unpack url]
+                                LinkPostPermalink {} ->
+                                    -- This case should be handled by
+                                    -- openURL's pattern-matching above.
+                                    error "BUG: openURL: got permalink unexpectedly"
                             Just fId -> prepareAttachment fId session
                     OpenLocalFile path ->
                         return [path]
