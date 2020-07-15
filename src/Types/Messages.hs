@@ -102,6 +102,7 @@ module Types.Messages
   , linkTime
   , linkName
   , linkFileId
+  , LinkTarget(..)
   )
 where
 
@@ -287,9 +288,13 @@ data LinkChoice =
     LinkChoice { _linkTime   :: ServerTime
                , _linkUser   :: UserRef
                , _linkName   :: Text
-               , _linkURL    :: Text
+               , _linkURL    :: LinkTarget
                , _linkFileId :: Maybe FileId
                } deriving (Eq, Show)
+
+data LinkTarget =
+    LinkURL Text
+    deriving (Eq, Show, Ord)
 
 makeLenses ''LinkChoice
 
@@ -721,14 +726,14 @@ withFirstMessage = withDirSeqHead
 msgURLs :: Message -> Seq LinkChoice
 msgURLs msg =
   let uRef = msg^.mUser
-      msgUrls = (\ (url, text) -> LinkChoice (msg^.mDate) uRef text url Nothing) <$>
+      msgUrls = (\ (url, text) -> LinkChoice (msg^.mDate) uRef text (LinkURL url) Nothing) <$>
                   (mconcat $ blockGetURLs <$> (toList $ msg^.mText))
       attachmentURLs = (\ a ->
                           LinkChoice
                             (msg^.mDate)
                             uRef
                             ("attachment `" <> (a^.attachmentName) <> "`")
-                            (a^.attachmentURL)
+                            (LinkURL $ a^.attachmentURL)
                             (Just (a^.attachmentFileId)))
                        <$> (msg^.mAttachments)
   in msgUrls <> attachmentURLs

@@ -40,7 +40,7 @@ renderUrlList st =
             (vLimit 1 $
              hBox [ let u = maybe "<server>" id (link^.linkUser.to (nameForUserRef st))
                     in colorUsername (myUsername st) u u
-                  , if link^.linkName == link^.linkURL
+                  , if LinkURL (link^.linkName) == link^.linkURL
                       then emptyWidget
                       else (txt ": " <+> (renderText $ link^.linkName))
                   , fill ' '
@@ -48,7 +48,10 @@ renderUrlList st =
                   , str " "
                   , renderTime st $ withServerTime time
                   ] ) <=>
-            (vLimit 1 (renderText $ link^.linkURL))
+            (vLimit 1 (renderLinkTarget $ link^.linkURL))
 
         attr True = forceAttr urlListSelectedAttr
         attr False = id
+
+renderLinkTarget :: LinkTarget -> Widget a
+renderLinkTarget (LinkURL url) = renderText url

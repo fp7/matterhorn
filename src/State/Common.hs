@@ -165,7 +165,8 @@ openURL thing = do
             let act = case thing of
                     OpenLinkChoice link ->
                         case link^.linkFileId of
-                            Nothing -> prepareLink link
+                            Nothing -> case link^.linkURL of
+                                LinkURL url -> return [T.unpack url]
                             Just fId -> prepareAttachment fId session
                     OpenLocalFile path ->
                         return [path]
@@ -285,9 +286,6 @@ runLoggedCommand stdoutOkay outputChan cmd args mInput mOutputVar = void $ forkI
         Right _ ->
             error $ "BUG: createProcess returned unexpected result, report this at " <>
                     "https://github.com/matterhorn-chat/matterhorn"
-
-prepareLink :: LinkChoice -> IO [String]
-prepareLink link = return [T.unpack $ link^.linkURL]
 
 prepareAttachment :: FileId -> Session -> IO [String]
 prepareAttachment fId sess = do
