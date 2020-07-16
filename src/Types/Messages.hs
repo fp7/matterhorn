@@ -734,8 +734,11 @@ msgURLs serverBaseUrl msg =
       mkLinkChoice (url, text) =
           let target = if serverBaseUrl `T.isPrefixOf` url
                        then let rest = T.drop (T.length serverBaseUrl) url
-                                (cName, pid) = T.breakOn "/pl/" rest
-                            in LinkPostPermalink cName (PI $ Id $ T.drop 4 pid)
+                                (cName, pid) = T.breakOn needle rest
+                                needle = "/pl/"
+                            in if not $ T.null pid
+                               then LinkPostPermalink cName (PI $ Id $ T.drop (T.length needle) pid)
+                               else LinkURL url
                        else LinkURL url
           in LinkChoice (msg^.mDate) uRef text target Nothing
       attachmentURLs = (\ a ->
