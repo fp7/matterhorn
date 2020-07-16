@@ -103,6 +103,7 @@ module Types.Messages
   , linkName
   , linkFileId
   , LinkTarget(..)
+  , linkTarget
   )
 where
 
@@ -727,19 +728,27 @@ removeMatchesFromSubset matching firstId lastId msgs =
 withFirstMessage :: SeqDirection dir => (Message -> r) -> DirectionalSeq dir Message -> Maybe r
 withFirstMessage = withDirSeqHead
 
+linkTarget :: Text
+           -- ^ Server base URL
+           -> Text
+           -- ^ The URL from which to build a LinkTarget
+           -> LinkTarget
+linkTarget serverBaseUrl linkUrl =
+    if serverBaseUrl `T.isPrefixOf` linkUrl
+    then let rest = T.drop (T.length serverBaseUrl) linkUrl
+             (cName, pid) = T.breakOn needle rest
+             needle = "/pl/"
+         in if not $ T.null pid
+            then LinkPostPermalink cName (PI $ Id $ T.drop (T.length needle) pid)
+            else LinkURL linkUrl
+    else LinkURL linkUrl
+
 msgURLs :: Text -> Message -> Seq LinkChoice
 msgURLs serverBaseUrl msg =
   let uRef = msg^.mUser
       msgUrls = mkLinkChoice <$> (mconcat $ blockGetURLs <$> (toList $ msg^.mText))
       mkLinkChoice (url, text) =
-          let target = if serverBaseUrl `T.isPrefixOf` url
-                       then let rest = T.drop (T.length serverBaseUrl) url
-                                (cName, pid) = T.breakOn needle rest
-                                needle = "/pl/"
-                            in if not $ T.null pid
-                               then LinkPostPermalink cName (PI $ Id $ T.drop (T.length needle) pid)
-                               else LinkURL url
-                       else LinkURL url
+          let target = linkTarget serverBaseUrl url
           in LinkChoice (msg^.mDate) uRef text target Nothing
       attachmentURLs = (\ a ->
                           LinkChoice
