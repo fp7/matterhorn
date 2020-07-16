@@ -41,7 +41,7 @@ openSelectedURL = whenMode UrlSelect $ do
                 mhError $ ConfigOptionMissing "urlOpenCommand"
                 setMode Main
 
-findUrls :: Text -> ClientChannel -> [LinkChoice]
+findUrls :: ServerBaseURL -> ClientChannel -> [LinkChoice]
 findUrls serverBaseUrl chan =
     let msgs = chan^.ccContents.cdMessages
     in removeDuplicates $ concat $ toList $ toList <$> msgURLs serverBaseUrl <$> msgs

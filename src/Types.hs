@@ -888,11 +888,11 @@ data ChatResources =
                   , _crEmoji               :: EmojiCollection
                   }
 
-getServerBaseUrl :: ChatState -> Text
+getServerBaseUrl :: ChatState -> ServerBaseURL
 getServerBaseUrl st =
     let cr = _csResources st
         conn = _crConn cr
-    in connectionDataURL conn
+    in ServerBaseURL $ connectionDataURL conn
 
 -- | A "special" mention that does not map to a specific user, but is an
 -- alias that the server uses to notify users.

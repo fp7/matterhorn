@@ -104,6 +104,7 @@ module Types.Messages
   , linkFileId
   , LinkTarget(..)
   , linkTarget
+  , ServerBaseURL(..)
   )
 where
 
@@ -300,6 +301,9 @@ data LinkTarget =
     | LinkPostPermalink Text PostId
     -- ^ Channel's URL name and post ID of target post
     deriving (Eq, Show, Ord)
+
+newtype ServerBaseURL = ServerBaseURL Text
+                      deriving (Eq, Show)
 
 makeLenses ''LinkChoice
 
@@ -728,12 +732,12 @@ removeMatchesFromSubset matching firstId lastId msgs =
 withFirstMessage :: SeqDirection dir => (Message -> r) -> DirectionalSeq dir Message -> Maybe r
 withFirstMessage = withDirSeqHead
 
-linkTarget :: Text
+linkTarget :: ServerBaseURL
            -- ^ Server base URL
            -> Text
            -- ^ The URL from which to build a LinkTarget
            -> LinkTarget
-linkTarget serverBaseUrl linkUrl =
+linkTarget (ServerBaseURL serverBaseUrl) linkUrl =
     if serverBaseUrl `T.isPrefixOf` linkUrl
     then let rest = T.drop (T.length serverBaseUrl) linkUrl
              (cName, pid) = T.breakOn needle rest
@@ -743,7 +747,7 @@ linkTarget serverBaseUrl linkUrl =
             else LinkURL linkUrl
     else LinkURL linkUrl
 
-msgURLs :: Text -> Message -> Seq LinkChoice
+msgURLs :: ServerBaseURL -> Message -> Seq LinkChoice
 msgURLs serverBaseUrl msg =
   let uRef = msg^.mUser
       msgUrls = mkLinkChoice <$> (mconcat $ blockGetURLs <$> (toList $ msg^.mText))
