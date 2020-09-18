@@ -100,7 +100,7 @@ channelGroupName = \case
     ChannelGroupPrivateChannels _ -> PrivateChannelList
     ChannelGroupDirectMessages _  -> DirectChannelList
 
-type ChanListGroupVSpecs = [(Name, Widget Name -> Widget Name)]
+type ChanListGroupVSpecs = [(Name, (Widget Name -> Widget Name, Text))]
 
 -- | The 'groupVSpec' function provides some relatively complex logic
 -- that is designed to handle the vertical layout for the ChannelList
@@ -153,18 +153,34 @@ groupVSpec st cglist =
         ChannelGroupPublicChannels _ -> True
         _ -> False
       fixedChans = filter (not . isGreedy . fst) cglist
+      numFixed = length fixedChans
       equalSz = groupsVSize `div` numGroups
       extra l = if l < equalSz then equalSz - l else 0
-      fixedExtraPer = sum ((extra . length . snd) <$> fixedChans) `div` (length fixedChans)
+      fixedExtraPer = sum ((extra . length . snd) <$> fixedChans) `div` numFixed
       fixedGrpSz = min (equalSz + fixedExtraPer)
-      vLimFun gEnts = let n = length gEnts in vLimit (clamp 2 (fixedGrpSz n) n)
-      nameAndLim = bimap channelGroupName vLimFun
+      extraText n s = T.pack $ if n > s
+                               then " (" <> show s <> "/" <> show n <> ")"
+                               else "" -- debug: <> show groupsVSize
+      vLimFunAndText gEnts = let n = length gEnts
+                                 s = fixedGrpSz n
+                                 v = clamp 2 s n
+                             in (vLimit v, extraText n s)
+      name'LimAndText = bimap channelGroupName vLimFunAndText
+      name'Text = bimap channelGroupName ((,) id . greedyText)
+      greedyText gEnts = let n = length gEnts
+                             totalFixedSz = sum $ (fixedGrpSz . length . snd) <$> fixedChans
+                             numGreedy = numGroups - numFixed
+                             s = (groupsVSize - totalFixedSz) `div` numGreedy
+                         in extraText n s
   in case st^.csChannelListVSize of
        Nothing -> []  -- all greedy, Brick vBox handles layout
-       Just _ -> nameAndLim <$> fixedChans
+       Just _ -> (name'LimAndText <$> fixedChans) <>
+                 -- add title supplement for greedy sections in case
+                 -- not all are shown due to size restrictions
+                 (name'Text <$> filter (isGreedy . fst) cglist)
 
-renderChannelListGroupHeading :: ChannelListGroup -> Widget Name
-renderChannelListGroupHeading g =
+renderChannelListGroupHeading :: ChannelListGroup -> Text -> Widget Name
+renderChannelListGroupHeading g extra =
     let (unread, label) = case g of
             ChannelGroupPublicChannels u -> (u, "Public")
             ChannelGroupPrivateChannels u -> (u, "Private")
@@ -172,7 +188,7 @@ renderChannelListGroupHeading g =
         addUnread = if unread > 0
                     then (<+> (withDefAttr unreadGroupMarkerAttr $ txt "*"))
                     else id
-        labelWidget = addUnread $ withDefAttr channelListHeaderAttr $ txt label
+        labelWidget = addUnread $ withDefAttr channelListHeaderAttr $ txt $ label <> extra
     in hBorderWithLabel labelWidget
 
 renderChannelListGroup :: ChatState
@@ -181,12 +197,10 @@ renderChannelListGroup :: ChatState
                        -> (ChannelListGroup, [e])
                        -> Widget Name
 renderChannelListGroup st vspec renderEntry (group, es) =
-    let heading = renderChannelListGroupHeading group
+    let heading = renderChannelListGroupHeading group titleExtra
         nm = channelGroupName group
+        Just (setHeight, titleExtra) = lookup nm vspec <|> Just (id, "")
         entryWidgets = renderEntry st <$> es
-        setHeight w = case lookup nm vspec of
-                        Nothing -> w
-                        Just virt -> virt w
     in if null entryWidgets
        then emptyWidget
        else vBox [ heading,
