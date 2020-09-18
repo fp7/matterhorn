@@ -547,7 +547,9 @@ loadLastChannelInput = do
 
 updateChannelListScroll :: MH ()
 updateChannelListScroll = do
-    mh $ vScrollToBeginning (viewportScroll ChannelList)
+    mh $ do vScrollToBeginning (viewportScroll PublicChannelList)
+            vScrollToBeginning (viewportScroll PrivateChannelList)
+            vScrollToBeginning (viewportScroll DirectChannelList)
 
 preChangeChannelCommon :: MH ()
 preChangeChannelCommon = do

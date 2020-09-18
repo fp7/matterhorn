@@ -1,3 +1,4 @@
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE RankNTypes #-}
 
@@ -24,6 +25,7 @@ import           Matterhorn.Prelude
 import           Brick
 import           Brick.Widgets.Border
 import           Brick.Widgets.Center (hCenter)
+import           Data.Bifunctor ( bimap )
 import qualified Data.Text as T
 import           Lens.Micro.Platform (non)
 
@@ -73,34 +75,100 @@ renderChannelListHeader st =
         unreadCount = sum $ (channelListGroupUnread . fst) <$> Z.toList (st^.csFocus)
 
 renderChannelList :: ChatState -> Widget Name
-renderChannelList st =
-    viewport ChannelList Vertical body
+renderChannelList st = vBox $ renderChannelListHeader st : body
     where
         myUsername_ = myUsername st
-        renderEntry s e = renderChannelListEntry myUsername_ $ mkChannelEntryData s e
+        vspec = groupVSpec st
+        rndr renderEach zipper = let l = Z.toList zipper
+                                 in renderChannelListGroup st (vspec l) renderEach <$> l
         body = case appMode st of
             ChannelSelect ->
                 let zipper = st^.csChannelSelectState.channelSelectMatches
-                    matches = if Z.isEmpty zipper
-                              then [hCenter $ txt "No matches"]
-                              else (renderChannelListGroup st
-                                       (renderChannelSelectListEntry (Z.focus zipper)) <$>
-                                   Z.toList zipper)
-                in vBox $
-                   renderChannelListHeader st :
-                   matches
+                in if Z.isEmpty zipper
+                   then [hCenter $ txt "No matches"]
+                   else rndr (renderChannelSelectListEntry (Z.focus zipper)) zipper
             _ ->
-                cached ChannelSidebar $
-                vBox $
-                renderChannelListHeader st :
-                (renderChannelListGroup st renderEntry <$> Z.toList (st^.csFocus))
+                let renderEntry s = renderChannelListEntry myUsername_ . mkChannelEntryData s
+                in [ cached ChannelSidebar $
+                     vBox $
+                     rndr renderEntry (st^.csFocus)
+                   ]
+
+channelGroupName :: ChannelListGroup -> Name
+channelGroupName = \case
+    ChannelGroupPublicChannels _  -> PublicChannelList
+    ChannelGroupPrivateChannels _ -> PrivateChannelList
+    ChannelGroupDirectMessages _  -> DirectChannelList
+
+type ChanListGroupVSpecs = [(Name, Widget Name -> Widget Name)]
+
+-- | The 'groupVSpec' function provides some relatively complex logic
+-- that is designed to handle the vertical layout for the ChannelList
+-- bar.
+--
+--  * The layout is based on the vertical layout extent of the channel
+--    list area ('csChannelListVSize') the *last* time it was
+--    rendered.  This means that the layout could be sub-optimal,
+--    especially just after a terminal window resize, although it's
+--    expected to self-correct after some updates.
+--
+--  * If the vertical layout extent is not known, no restrictions are
+--    placed on the channel group lists which means that the Brick
+--    VBox will treat them all as "Greedy" and split the vertical
+--    space equally; this is a reasonable fallback condition.
+--
+--  * The Public channels are always treated as "Greedy" to allow them
+--    to take up any space not needed for other groups.
+--
+--  * The worst-case for when the contents of all groups exceeds the
+--    available space is to allow each equal space.  The maximum
+--    amount of space used for all other groups should still leave the
+--    Public channel group with its minimum amount of space (vertical
+--    space / ngroups).
+--
+--  * By default the remaining non-Public group space is equally
+--    divided among all other groups, but if a group does not *need*
+--    the amount of space allocated to it, that space will be
+--    distributed to other groups to use.  When all groups do not need
+--    the amount of space allowed to them, the Public group will be
+--    allowed to grow greedily and consume their space.
+--
+--  * The minimum vertical size for each group is 2 entries.
+--
+--  * Only the groups that are constrained vertically will have a Name
+--    vLimit entry in the output; any channel group entry without an
+--    entry in this list will be layed out with default vertical
+--    consumption (i.e. "Greedy").
+--
+--  * This function makes an assumption that the Public group is
+--    present and should be greedy; it makes no assumptions about any
+--    other channel groups and is designed to work with any number of
+--    channel groups.
+
+groupVSpec :: ChatState -> [(ChannelListGroup, [e])] -> ChanListGroupVSpecs
+groupVSpec st cglist =
+  let numGroups = length cglist
+      Just groupsVSize = st^.csChannelListVSize  -- safe due to main case below
+      isGreedy = \case
+        ChannelGroupPublicChannels _ -> True
+        _ -> False
+      fixedChans = filter (not . isGreedy . fst) cglist
+      equalSz = groupsVSize `div` numGroups
+      extra l = if l < equalSz then equalSz - l else 0
+      fixedExtraPer = sum ((extra . length . snd) <$> fixedChans) `div` (length fixedChans)
+      fixedGrpSz = min (equalSz + fixedExtraPer)
+      vLimFun gEnts = let n = length gEnts in vLimit (clamp 2 (fixedGrpSz n) n)
+      nameAndLim = bimap channelGroupName vLimFun
+  in case st^.csChannelListVSize of
+       Nothing -> []  -- all greedy, Brick vBox handles layout
+       Just _ -> nameAndLim <$> fixedChans
 
 renderChannelListGroupHeading :: ChannelListGroup -> Widget Name
 renderChannelListGroupHeading g =
     let (unread, label) = case g of
-            ChannelGroupPublicChannels u -> (u, "Public Channels")
-            ChannelGroupPrivateChannels u -> (u, "Private Channels")
-            ChannelGroupDirectMessages u -> (u, "Direct Messages")
+            ChannelGroupPublicChannels u -> (u, "Public")
+            ChannelGroupPrivateChannels u -> (u, "Private")
+            ChannelGroupDirectMessages u -> (u, "Direct")
         addUnread = if unread > 0
                     then (<+> (withDefAttr unreadGroupMarkerAttr $ txt "*"))
                     else id
@@ -108,15 +176,22 @@ renderChannelListGroupHeading g =
     in hBorderWithLabel labelWidget
 
 renderChannelListGroup :: ChatState
+                       -> ChanListGroupVSpecs
                        -> (ChatState -> e -> Widget Name)
                        -> (ChannelListGroup, [e])
                        -> Widget Name
-renderChannelListGroup st renderEntry (group, es) =
+renderChannelListGroup st vspec renderEntry (group, es) =
     let heading = renderChannelListGroupHeading group
+        nm = channelGroupName group
         entryWidgets = renderEntry st <$> es
+        setHeight w = case lookup nm vspec of
+                        Nothing -> w
+                        Just virt -> virt w
     in if null entryWidgets
        then emptyWidget
-       else vBox (heading : entryWidgets)
+       else vBox [ heading,
+                   setHeight $ viewport nm Vertical $ vBox entryWidgets
+                 ]
 
 mkChannelEntryData :: ChatState
                    -> ChannelListEntry

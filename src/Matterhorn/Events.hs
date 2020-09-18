@@ -13,7 +13,7 @@ import qualified Data.Sequence as Seq
 import qualified Data.Set as Set
 import qualified Data.Text as T
 import qualified Graphics.Vty as Vty
-import           Lens.Micro.Platform ( (.=), preuse, _2, singular, _Just )
+import           Lens.Micro.Platform ( (.=), (.~), preuse, _2, singular, _Just )
 
 import qualified Network.Mattermost.Endpoints as MM
 import           Network.Mattermost.Exceptions ( mattermostErrorMessage )
@@ -53,7 +53,12 @@ import           Matterhorn.Events.EditNotifyPrefs
 
 
 onEvent :: ChatState -> BrickEvent Name MHEvent -> EventM Name (Next ChatState)
-onEvent st ev = runMHEvent st $ do
+onEvent st ev = do
+  vsz1 <- fmap (snd . _vpSize) <$> lookupViewport PublicChannelList
+  vsz2 <- fmap (snd . _vpSize) <$> lookupViewport PrivateChannelList
+  vsz3 <- fmap (snd . _vpSize) <$> lookupViewport DirectChannelList
+  let vsz = sum <$> sequence [vsz1, vsz2, vsz3]
+  runMHEvent (st & csChannelListVSize .~ vsz) $ do
     onBrickEvent ev
     doPendingUserFetches
     doPendingUserStatusFetches

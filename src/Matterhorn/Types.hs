@@ -81,6 +81,7 @@ module Matterhorn.Types
   , csUrlList
   , csShowMessagePreview
   , csShowChannelList
+  , csChannelListVSize
   , csPostMap
   , csRecentChannel
   , csReturnChannel
@@ -647,7 +648,9 @@ groupChannelShowPreference ps cId = HM.lookup cId (_userPrefGroupChannelPrefs ps
 data Name =
     ChannelMessages ChannelId
     | MessageInput
-    | ChannelList
+    | PublicChannelList
+    | PrivateChannelList
+    | DirectChannelList
     | HelpViewport
     | HelpText
     | ScriptHelpText
@@ -1305,6 +1308,8 @@ data ChatState =
               -- ^ Whether to show the message preview area.
               , _csShowChannelList :: Bool
               -- ^ Whether to show the channel list.
+              , _csChannelListVSize :: Maybe Int
+              -- ^ Last vertical rendering size of the channel list
               , _csChannelSelectState :: ChannelSelectState
               -- ^ The state of the user's input and selection for
               -- channel selection mode.
@@ -1398,6 +1403,7 @@ newState (StartupStateInfo {..}) = do
                      , _csMode                        = Main
                      , _csShowMessagePreview          = configShowMessagePreview $ _crConfiguration startupStateResources
                      , _csShowChannelList             = configShowChannelList $ _crConfiguration startupStateResources
+                     , _csChannelListVSize            = Nothing
                      , _csChannelSelectState          = emptyChannelSelectState
                      , _csRecentChannel               = Nothing
                      , _csReturnChannel               = Nothing
