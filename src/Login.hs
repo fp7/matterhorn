@@ -84,7 +84,7 @@ import           Network.Mattermost.Endpoints ( mmGetUser, mmGetLimitedClientCon
 import           Draw.RichText
 import           Themes ( clientEmphAttr )
 import           Types ( ConnectionInfo(..)
-                       , ciPassword, ciUsername, ciHostname, ciUrlPath
+                       , ciPassword, ciUsername, ciHostname, ciBasicAuthUser, ciBasicAuthPassword, ciUrlPath
                        , ciPort, ciType, AuthenticationException(..)
                        , LogManager, LogCategory(..), ioLogWithManager
                        , ciAccessToken
@@ -97,6 +97,8 @@ data Name =
     | Username
     | Password
     | AccessToken
+    | BasicAuthUser
+    | BasicAuthPassword
     deriving (Ord, Eq, Show)
 
 -- | The result of an authentication attempt.
@@ -417,6 +419,9 @@ mkForm =
                , label "Password:"       @@= editPasswordField ciPassword Password
                , (above "Or provide a Session or Personal Access Token:" .
                   label "Access Token:") @@= editPasswordField ciAccessToken AccessToken
+               , (above "Provide additional basic auth info" .
+                 label "Basic Auth User:") @@= editTextField ciBasicAuthUser BasicAuthUser (Just 1)
+               , label "Basic Auth Password:" @@= editPasswordField ciBasicAuthPassword BasicAuthPassword
                ]
 
 serverLens :: Lens' ConnectionInfo (Text, Int, Text, ConnectionType)
@@ -586,7 +591,7 @@ uiWidth = 60
 
 credentialsForm :: State -> Widget Name
 credentialsForm st =
-    hCenter $ hLimit uiWidth $ vLimit 15 $
+    hCenter $ hLimit uiWidth $ vLimit 20 $
     border $
     vBox [ renderText "Please enter your Mattermost credentials to log in."
          , padTop (Pad 1) $ renderForm (st^.loginForm)

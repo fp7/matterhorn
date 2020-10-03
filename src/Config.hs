@@ -72,6 +72,7 @@ fromIni :: IniParser Config
 fromIni = do
   conf <- section "mattermost" $ do
     configUser           <- fieldMbOf "user" stringField
+    configBasicAuthUser  <- fieldMbOf "basicauthuser" stringField
     configHost           <- fieldMbOf "host" hostField
     configTeam           <- fieldMbOf "team" stringField
     configPort           <- fieldDefOf "port" number (configPort defaultConfig)
@@ -116,6 +117,10 @@ fromIni = do
     configPass <- (Just . PasswordCommand <$> field "passcmd") <!>
                   (Just . PasswordString  <$> field "pass") <!>
                   pure Nothing
+    configBasicAuthPass <- (Just . PasswordCommand <$> field "basicauthpasscmd") <!>
+                           (Just . PasswordString  <$> field "basicauthpass") <!>
+                           pure Nothing
+
     configToken <- (Just . TokenCommand  <$> field "tokencmd") <!>
                   pure Nothing
     configUnsafeUseHTTP <-
@@ -218,6 +223,8 @@ defaultConfig =
            , configTeam                        = Nothing
            , configPort                        = defaultPort
            , configUrlPath                     = Nothing
+           , configBasicAuthUser               = Nothing
+           , configBasicAuthPass               = Nothing
            , configPass                        = Nothing
            , configToken                       = Nothing
            , configTimeFormat                  = Nothing

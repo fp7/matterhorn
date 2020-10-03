@@ -48,6 +48,10 @@ incompleteCredentials config = ConnectionInfo
   , _ciPassword = case configPass config of
                     Just (PasswordString s) -> s
                     _                       -> ""
+  , _ciBasicAuthUser = fromMaybe "" (configBasicAuthUser config)
+  , _ciBasicAuthPassword = case configBasicAuthPass config of
+                             Just (PasswordString s) -> s
+                             _                       -> ""
   , _ciAccessToken = case configToken config of
                        Just (TokenString s) -> s
                        _                    -> ""

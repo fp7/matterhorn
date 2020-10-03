@@ -43,6 +43,8 @@ module Types
   , ciUrlPath
   , ciUsername
   , ciPassword
+  , ciBasicAuthUser
+  , ciBasicAuthPassword
   , ciType
   , ciAccessToken
   , Config(..)
@@ -389,6 +391,10 @@ data Config =
            , configUrlPath :: Maybe Text
            -- ^ The server path to use when connecting.
            , configPass :: Maybe PasswordSource
+           -- ^ The basic auth user for the server
+           , configBasicAuthUser :: Maybe Text
+           -- ^ The basic auth password for the server
+           , configBasicAuthPass :: Maybe PasswordSource
            -- ^ The password source to use when connecting.
            , configToken :: Maybe TokenSource
            -- ^ The token source to use when connecting.
@@ -708,6 +714,8 @@ data ConnectionInfo =
                    , _ciUsername :: Text
                    , _ciPassword :: Text
                    , _ciAccessToken :: Text
+                   , _ciBasicAuthUser :: Text
+                   , _ciBasicAuthPassword :: Text
                    , _ciType     :: ConnectionType
                    }
 
